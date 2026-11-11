@@ -1,0 +1,68 @@
+{
+  "app_version": "0.1.0",
+  "platform": "macOS arm64",
+  "minimum_verified_macos": "27.0.1",
+  "engine_version": "Real-ESRGAN ncnn Vulkan v0.2.0",
+  "upstream_archive": {
+    "version": "Real-ESRGAN v0.2.5.0 / 20220424",
+    "source": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-macos.zip",
+    "sha256": "e0ad05580abfeb25f8d8fb55aaf7bedf552c375b5b4d9bd3c8d59764d2cc333a"
+  },
+  "engine_static_components": {
+    "ncnn": "https://github.com/Tencent/ncnn/tree/6125c9f47cd14b589de0521350668cf9d3d37e3c",
+    "libwebp": "https://github.com/webmproject/libwebp/tree/8ea81561d2fdd382da60f57958741a7c23a18eb6",
+    "MoltenVK": "v1.1.1 (Vulkan SDK 1.2.162.0)",
+    "OpenMP": "LLVM 11.0.0",
+    "build": "https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan/blob/v0.2.0/.github/workflows/release.yml"
+  },
+  "files": [
+    {
+      "path": "libexec/realesrgan-ncnn-vulkan",
+      "version": "v0.2.0, arm64 slice",
+      "source": "upstream_archive",
+      "sha256": "0a08cd912c71d9b1bb2de8b80c9abebf2aa7df12a6446112fe915e3cadbb6864"
+    },
+    {
+      "path": "models/realesrgan-x4plus.bin",
+      "version": "20220424",
+      "source": "upstream_archive",
+      "sha256": "713ee713b0353afaa27976f0563a64a5043bd70b9bd8936c2e26e25ebcdbcddf"
+    },
+    {
+      "path": "models/realesrgan-x4plus.param",
+      "version": "20220424",
+      "source": "upstream_archive",
+      "sha256": "35330ececcea33b6c397a72548e788d5d53becee4734c50b7fada36e89f10a86"
+    },
+    {
+      "path": "models/realesrgan-x4plus-anime.bin",
+      "version": "20220424",
+      "source": "upstream_archive",
+      "sha256": "fe01c269cfd10cdef8e018ab66ebe750cf79c7af4d1f9c16c737e1295229bacc"
+    },
+    {
+      "path": "models/realesrgan-x4plus-anime.param",
+      "version": "20220424",
+      "source": "upstream_archive",
+      "sha256": "2b8fb6e0ae4d2d85704ca08c119a2f5ea40add4f2ecd512eb7f4cd44b6127ed4"
+    },
+    {
+      "path": "diagnostics/input.png",
+      "version": "1",
+      "source": "upscale synthetic RGB fixture",
+      "sha256": "4added0a3c04a36217e98e4d8d7c197e873717a00c362889a8145e42cac63e47"
+    },
+    {
+      "path": "diagnostics/general.png",
+      "version": "1",
+      "source": "upscale diagnostic fixture on Apple M4, general, auto tile",
+      "sha256": "1f71b5390e233e8686d1c8250955f54ecdbed64724a9789b2b3188848b0273e2"
+    },
+    {
+      "path": "diagnostics/anime.png",
+      "version": "1",
+      "source": "upscale diagnostic fixture on Apple M4, anime, auto tile",
+      "sha256": "17e684592988208645b7a396f975cd251f2554dec1ab60db93b5d090e9a0b740"
+    }
+  ]
+}

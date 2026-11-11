@@ -1,0 +1,24 @@
+[package]
+name = "upscale"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "Local Real-ESRGAN image upscaling for Apple Silicon Macs"
+license = "MIT"
+readme = "README.md"
+
+[dependencies]
+anyhow = "=1.0.104"
+clap = { version = "=4.5.57", features = ["derive"] }
+exif = { package = "kamadak-exif", version = "=0.6.1" }
+image = { version = "=0.25.10", default-features = false }
+libc = "=0.2.191"
+moxcms = "=0.8.1"
+png = "=0.18.1"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+sha2 = "=0.10.9"
+signal-hook-registry = "=1.4.8"
+tempfile = "=3.27.0"
+zune-core = "=0.5.3"
+zune-jpeg = "=0.5.15"

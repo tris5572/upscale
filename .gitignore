@@ -1,0 +1,40 @@
+# Build outputs and extracted distribution
+/target/
+/dist/
+/upscale-macos-arm64/
+/upscale-*-macos-arm64.tar.gz*
+/realesrgan-ncnn-vulkan-*.zip
+/libexec/
+/models/
+
+# Local images and interrupted runs
+/input/
+/inputs/
+/output/
+/outputs/
+*.[pP][nN][gG]
+*.[jJ][pP][gG]
+*.[jJ][pP][eE][gG]
+!/resources/diagnostics/*.png
+.upscale-work-*/
+
+# Credentials and local tools
+.env
+.env.*
+!.env.example
+.cargo/credentials
+.cargo/credentials.toml
+.aws/
+.ssh/
+*.key
+*.pem
+*.p12
+*.pfx
+*.mobileprovision
+.codex/
+.idea/
+.vscode/
+
+# macOS filesystem metadata
+.DS_Store
+._*
