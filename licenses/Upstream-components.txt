@@ -1,0 +1,15 @@
+Real-ESRGAN, release v0.2.5.0 (model archive 20220424)
+https://github.com/xinntao/Real-ESRGAN/tree/v0.2.5.0
+https://github.com/xinntao/Real-ESRGAN/releases/tag/v0.2.5.0
+
+Real-ESRGAN ncnn Vulkan, release v0.2.0
+https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan/tree/v0.2.0
+
+Statically linked components and notices
+ncnn        https://github.com/Tencent/ncnn/tree/6125c9f47cd14b589de0521350668cf9d3d37e3c
+libwebp     https://github.com/webmproject/libwebp/tree/8ea81561d2fdd382da60f57958741a7c23a18eb6
+glslang     https://github.com/KhronosGroup/glslang/tree/4afd69177258d0636f78d2c4efb823ab6382a187
+MoltenVK    https://github.com/KhronosGroup/MoltenVK/tree/v1.1.1
+SPIRV-Cross https://github.com/KhronosGroup/SPIRV-Cross/tree/762c3082ae65e43f1c4f11546a21d3f9c1317160
+LLVM OpenMP https://github.com/llvm/llvm-project/tree/llvmorg-11.0.0/openmp
+stb         https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan/tree/v0.2.0/src
