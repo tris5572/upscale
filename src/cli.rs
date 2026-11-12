@@ -17,8 +17,8 @@ pub struct Cli {
     #[arg(required = true)]
     input: Option<PathBuf>,
 
-    /// Output PNG for one image, or an output directory for a batch
-    #[arg(short, long, required = true, value_name = "PATH")]
+    /// Output PNG for one image, or an output directory for a batch. By default, save beside the input
+    #[arg(short, long, value_name = "PATH")]
     output: Option<PathBuf>,
 
     /// Final multiplier for each side (2, 3 or 4). Inference always runs at 4x
@@ -103,7 +103,7 @@ fn parse_tile(value: &str) -> Result<Tile, &'static str> {
 
 pub struct Options {
     pub input: PathBuf,
-    pub output: PathBuf,
+    pub output: Option<PathBuf>,
     pub scale: u32,
     pub preset: Preset,
     pub tile: Tile,
@@ -116,9 +116,7 @@ impl Cli {
             input: self
                 .input
                 .ok_or_else(|| anyhow!("input path is required"))?,
-            output: self
-                .output
-                .ok_or_else(|| anyhow!("output path is required"))?,
+            output: self.output,
             scale: self.scale,
             preset: self.preset,
             tile: self.tile,
