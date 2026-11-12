@@ -1,4 +1,4 @@
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::io;
 use std::os::fd::{AsRawFd, RawFd};
@@ -64,7 +64,7 @@ impl Plan {
         } else {
             options
                 .input
-                .with_file_name(scaled_output_name(&options.input, options.scale))
+                .with_file_name(scaled_output_name(&options.input, options.scale, true))
         };
         let parent = output
             .parent()
@@ -114,7 +114,7 @@ impl Plan {
         let jobs = paths
             .into_iter()
             .map(|path| {
-                let name = scaled_output_name(&path, options.scale);
+                let name = scaled_output_name(&path, options.scale, options.output.is_none());
                 Job {
                     input: path,
                     output: parent.join(name),
@@ -152,9 +152,14 @@ impl Plan {
     }
 }
 
-fn scaled_output_name(input: &Path, scale: u32) -> OsString {
+fn scaled_output_name(input: &Path, scale: u32, preserve_extension: bool) -> OsString {
     let mut name = input.file_stem().unwrap_or_default().to_os_string();
-    name.push(format!("_x{scale}.png"));
+    name.push(format!("_x{scale}."));
+    name.push(if preserve_extension {
+        input.extension().expect("supported input extension")
+    } else {
+        OsStr::new("png")
+    });
     name
 }
 

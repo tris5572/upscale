@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
 use std::io::Write;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
+use image::codecs::jpeg::JpegEncoder;
 use image::imageops::{FilterType, resize};
 use image::{GrayImage, ImageBuffer, Luma, RgbImage, Rgba32FImage, RgbaImage};
 
@@ -198,6 +199,14 @@ pub fn encode_png(writer: impl Write, output: &Output) -> Result<()> {
         Output::Rgba(image) => (image.dimensions(), png::ColorType::Rgba, image.as_raw()),
     };
     write_png(writer, dimensions, color, bytes)
+}
+
+pub fn encode_jpeg(writer: impl Write, output: &Output) -> Result<()> {
+    let Output::Rgb(image) = output else {
+        bail!("JPEG output does not support transparency");
+    };
+    JpegEncoder::new_with_quality(writer, 95).encode_image(image)?;
+    Ok(())
 }
 
 pub fn encode_rgb_png(writer: impl Write, image: &RgbImage) -> Result<()> {

@@ -9,13 +9,13 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use clap::Parser;
 
 use crate::bundle::Bundle;
 use crate::cli::{Cli, ModelCommand, Operation, Options, Preset};
 use crate::engine::{EngineError, check_interrupted};
-use crate::storage::{Job, Plan, Workspace};
+use crate::storage::{Format, Job, Plan, Workspace};
 
 const FAILURE: u8 = 1;
 const USAGE: u8 = 2;
@@ -152,6 +152,17 @@ fn process(
             error: with_input(error),
         }
     })?;
+    let (width, height) = input.rgb.dimensions();
+    if Format::from_extension(&job.output) == Some(Format::Jpeg)
+        && width.max(height) > u32::from(u16::MAX) / options.scale
+    {
+        return Err(Failure {
+            code: USAGE,
+            error: with_input(anyhow!(
+                "JPEG output is limited to 65535 pixels per side. Use -o to save as PNG"
+            )),
+        });
+    }
     let bundle = match bundle {
         Some(bundle) => bundle,
         slot => slot.insert(Bundle::open().map_err(runtime_failure)?),
@@ -184,7 +195,10 @@ fn save(
         .context("missing output extension")?;
     let stem = destination.file_stem().context("missing output filename")?;
     let mut temporary = tempfile::NamedTempFile::new_in(workspace.path())?;
-    pixels::encode_png(temporary.as_file_mut(), output)?;
+    match Format::from_extension(destination).context("unsupported output extension")? {
+        Format::Png => pixels::encode_png(temporary.as_file_mut(), output)?,
+        Format::Jpeg => pixels::encode_jpeg(temporary.as_file_mut(), output)?,
+    }
     temporary.as_file().sync_all()?;
 
     let mut path = destination.to_path_buf();
@@ -252,5 +266,20 @@ mod tests {
         assert_eq!(fs::read(&destination).unwrap(), b"existing");
         assert_eq!(fs::read_link(link).unwrap(), Path::new("missing"));
         assert!(directory.is_dir());
+    }
+
+    #[test]
+    fn automatic_jpeg_save_preserves_extension_and_format() {
+        let root = tempfile::tempdir().unwrap();
+        let workspace = Workspace::new(root.path()).unwrap();
+        let destination = root.path().join("sample_x2.JPEG");
+        fs::write(&destination, b"existing").unwrap();
+
+        let output = pixels::Output::Rgb(image::RgbImage::new(4, 6));
+        let saved = save(&workspace, &destination, &output, true).unwrap();
+
+        assert_eq!(saved, root.path().join("sample_x2(1).JPEG"));
+        assert_eq!(decode::input(&saved).unwrap().rgb.dimensions(), (4, 6));
+        assert_eq!(fs::read(destination).unwrap(), b"existing");
     }
 }

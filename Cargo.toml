@@ -11,7 +11,7 @@ readme = "README.md"
 anyhow = "=1.0.104"
 clap = { version = "=4.6.7", features = ["derive"] }
 exif = { package = "kamadak-exif", version = "=0.6.1" }
-image = { version = "=0.25.10", default-features = false }
+image = { version = "=0.25.10", default-features = false, features = ["jpeg"] }
 libc = "=0.2.191"
 moxcms = "=0.8.1"
 png = "=0.18.1"
