@@ -13,7 +13,7 @@ clap = { version = "=4.6.7", features = ["derive"] }
 exif = { package = "kamadak-exif", version = "=0.6.1" }
 image = { version = "=0.25.10", default-features = false, features = ["jpeg"] }
 libc = "=0.2.191"
-moxcms = "=0.8.1"
+moxcms = "=0.9.2"
 png = "=0.18.1"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
