@@ -260,6 +260,8 @@ dependencies = [
  "byteorder-lite",
  "moxcms",
  "num-traits",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]

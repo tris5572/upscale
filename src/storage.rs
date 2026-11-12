@@ -1,4 +1,4 @@
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::io;
 use std::os::fd::{AsRawFd, RawFd};
@@ -56,24 +56,32 @@ impl Plan {
         if !input.is_file() || Format::from_extension(&options.input).is_none() {
             bail!("input must be a PNG or JPEG file, or a directory");
         }
-        if Format::from_extension(&options.output) != Some(Format::Png) {
-            bail!("output filename must end in .png");
-        }
-        let parent = options
-            .output
+        let output = if let Some(output) = &options.output {
+            if Format::from_extension(output) != Some(Format::Png) {
+                bail!("output filename must end in .png");
+            }
+            output.clone()
+        } else {
+            options
+                .input
+                .with_file_name(scaled_output_name(&options.input, options.scale, true))
+        };
+        let parent = output
             .parent()
             .filter(|path| !path.as_os_str().is_empty())
             .unwrap_or_else(|| Path::new("."));
         if !parent.is_dir() {
             bail!("output parent is not a directory: {}", parent.display());
         }
-        ensure_new_output(&options.output)?;
+        if options.output.is_some() {
+            ensure_new_output(&output)?;
+        }
         Ok(Self {
             parent: parent.canonicalize()?,
             batch: false,
             jobs: vec![Job {
                 input: options.input.clone(),
-                output: options.output.clone(),
+                output,
             }],
         })
     }
@@ -91,25 +99,22 @@ impl Plan {
             bail!("no PNG or JPEG files in {}", options.input.display());
         }
 
-        fs::create_dir_all(&options.output).with_context(|| {
-            format!(
-                "cannot create output directory {}",
-                options.output.display()
-            )
-        })?;
-        let parent = options.output.canonicalize()?;
-        if same_file(input, &parent.metadata()?) {
-            bail!("input and output directories refer to the same location");
-        }
+        let parent = if let Some(output) = &options.output {
+            fs::create_dir_all(output)
+                .with_context(|| format!("cannot create output directory {}", output.display()))?;
+            let parent = output.canonicalize()?;
+            if same_file(input, &parent.metadata()?) {
+                bail!("input and output directories refer to the same location");
+            }
+            parent
+        } else {
+            options.input.canonicalize()?
+        };
 
         let jobs = paths
             .into_iter()
             .map(|path| {
-                let mut name = path
-                    .file_stem()
-                    .unwrap_or_else(|| OsStr::new(""))
-                    .to_os_string();
-                name.push(format!("_x{}.png", options.scale));
+                let name = scaled_output_name(&path, options.scale, options.output.is_none());
                 Job {
                     input: path,
                     output: parent.join(name),
@@ -145,6 +150,17 @@ impl Plan {
         }
         Ok(())
     }
+}
+
+fn scaled_output_name(input: &Path, scale: u32, preserve_extension: bool) -> OsString {
+    let mut name = input.file_stem().unwrap_or_default().to_os_string();
+    name.push(format!("_x{scale}."));
+    name.push(if preserve_extension {
+        input.extension().expect("supported input extension")
+    } else {
+        OsStr::new("png")
+    });
+    name
 }
 
 fn ensure_new_output(path: &Path) -> Result<()> {

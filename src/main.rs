@@ -5,16 +5,17 @@ mod engine;
 mod pixels;
 mod storage;
 
-use std::path::Path;
+use std::io;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use clap::Parser;
 
 use crate::bundle::Bundle;
 use crate::cli::{Cli, ModelCommand, Operation, Options, Preset};
 use crate::engine::{EngineError, check_interrupted};
-use crate::storage::{Job, Plan, Workspace};
+use crate::storage::{Format, Job, Plan, Workspace};
 
 const FAILURE: u8 = 1;
 const USAGE: u8 = 2;
@@ -86,8 +87,10 @@ fn doctor() -> Result<()> {
 fn upscale(options: &Options) -> Result<(), Failure> {
     let plan = Plan::new(options).map_err(|error| Failure { code: USAGE, error })?;
     let workspace = Workspace::new(&plan.parent).map_err(image_failure)?;
-    plan.check_collisions(&workspace)
-        .map_err(|error| Failure { code: USAGE, error })?;
+    if options.output.is_some() {
+        plan.check_collisions(&workspace)
+            .map_err(|error| Failure { code: USAGE, error })?;
+    }
 
     let mut bundle = None;
     let mut succeeded = 0;
@@ -105,10 +108,10 @@ fn upscale(options: &Options) -> Result<(), Failure> {
         let result = process(job, options, &workspace, &mut bundle);
         check_interrupted().map_err(image_failure)?;
         match result {
-            Ok(()) => {
+            Ok(destination) => {
                 succeeded += 1;
                 if !options.quiet {
-                    eprintln!("Saved {}", job.output.display());
+                    eprintln!("Saved {}", destination.display());
                 }
             }
             Err(failure)
@@ -136,7 +139,7 @@ fn process(
     options: &Options,
     workspace: &Workspace,
     bundle: &mut Option<Bundle>,
-) -> Result<(), Failure> {
+) -> Result<PathBuf, Failure> {
     let with_input = |error: anyhow::Error| error.context(job.input.display().to_string());
     let mut input = decode::input(&job.input).map_err(|error| {
         let code = if error.is::<decode::Unsupported>() {
@@ -149,6 +152,17 @@ fn process(
             error: with_input(error),
         }
     })?;
+    let (width, height) = input.rgb.dimensions();
+    if Format::from_extension(&job.output) == Some(Format::Jpeg)
+        && width.max(height) > u32::from(u16::MAX) / options.scale
+    {
+        return Err(Failure {
+            code: USAGE,
+            error: with_input(anyhow!(
+                "JPEG output is limited to 65535 pixels per side. Use -o to save as PNG"
+            )),
+        });
+    }
     let bundle = match bundle {
         Some(bundle) => bundle,
         slot => slot.insert(Bundle::open().map_err(runtime_failure)?),
@@ -159,7 +173,7 @@ fn process(
             .engine()
             .infer(workspace, &input.rgb, options.preset, options.tile)?;
         let output = input.finish(rgb, options.scale)?;
-        save(workspace, &job.output, &output)
+        save(workspace, &job.output, &output, options.output.is_none())
     })();
     result.map_err(|error| {
         let mut failure = image_failure(with_input(error));
@@ -170,16 +184,42 @@ fn process(
     })
 }
 
-fn save(workspace: &Workspace, destination: &Path, output: &pixels::Output) -> Result<()> {
+fn save(
+    workspace: &Workspace,
+    destination: &Path,
+    output: &pixels::Output,
+    automatic: bool,
+) -> Result<PathBuf> {
+    let extension = destination
+        .extension()
+        .context("missing output extension")?;
+    let stem = destination.file_stem().context("missing output filename")?;
     let mut temporary = tempfile::NamedTempFile::new_in(workspace.path())?;
-    pixels::encode_png(temporary.as_file_mut(), output)?;
+    match Format::from_extension(destination).context("unsupported output extension")? {
+        Format::Png => pixels::encode_png(temporary.as_file_mut(), output)?,
+        Format::Jpeg => pixels::encode_jpeg(temporary.as_file_mut(), output)?,
+    }
     temporary.as_file().sync_all()?;
-    check_interrupted()?;
-    temporary
-        .persist_noclobber(destination)
-        .map_err(|error| error.error)
-        .with_context(|| format!("cannot save {}", destination.display()))?;
-    Ok(())
+
+    let mut path = destination.to_path_buf();
+    let mut suffix = 1;
+    loop {
+        check_interrupted()?;
+        match temporary.persist_noclobber(&path) {
+            Ok(_) => return Ok(path),
+            Err(error) if automatic && error.error.kind() == io::ErrorKind::AlreadyExists => {
+                temporary = error.file;
+                let mut name = stem.to_os_string();
+                name.push(format!("({suffix})."));
+                name.push(extension);
+                path.set_file_name(name);
+                suffix += 1;
+            }
+            Err(error) => {
+                return Err(error.error).with_context(|| format!("cannot save {}", path.display()));
+            }
+        }
+    }
 }
 
 fn image_failure(error: anyhow::Error) -> Failure {
@@ -198,4 +238,48 @@ fn runtime_failure(error: anyhow::Error) -> Failure {
         RUNTIME
     };
     Failure { code, error }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::os::unix::fs::symlink;
+
+    use super::*;
+
+    #[test]
+    fn automatic_save_retries_occupied_paths_without_overwriting_them() {
+        let root = tempfile::tempdir().unwrap();
+        let workspace = Workspace::new(root.path()).unwrap();
+        let destination = root.path().join("sample.photo_x4.PNG");
+        let link = root.path().join("sample.photo_x4(1).PNG");
+        let directory = root.path().join("sample.photo_x4(2).PNG");
+        fs::write(&destination, b"existing").unwrap();
+        symlink("missing", &link).unwrap();
+        fs::create_dir(&directory).unwrap();
+
+        let output = pixels::Output::Rgb(image::RgbImage::new(1, 1));
+        let saved = save(&workspace, &destination, &output, true).unwrap();
+
+        assert_eq!(saved, root.path().join("sample.photo_x4(3).PNG"));
+        assert_eq!(decode::input(&saved).unwrap().rgb.dimensions(), (1, 1));
+        assert_eq!(fs::read(&destination).unwrap(), b"existing");
+        assert_eq!(fs::read_link(link).unwrap(), Path::new("missing"));
+        assert!(directory.is_dir());
+    }
+
+    #[test]
+    fn automatic_jpeg_save_preserves_extension_and_format() {
+        let root = tempfile::tempdir().unwrap();
+        let workspace = Workspace::new(root.path()).unwrap();
+        let destination = root.path().join("sample_x2.JPEG");
+        fs::write(&destination, b"existing").unwrap();
+
+        let output = pixels::Output::Rgb(image::RgbImage::new(4, 6));
+        let saved = save(&workspace, &destination, &output, true).unwrap();
+
+        assert_eq!(saved, root.path().join("sample_x2(1).JPEG"));
+        assert_eq!(decode::input(&saved).unwrap().rgb.dimensions(), (4, 6));
+        assert_eq!(fs::read(destination).unwrap(), b"existing");
+    }
 }
